@@ -7,9 +7,9 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 > [!WARNING]
 > **Disclaimer — use at your own risk.**
 >
-> This tool reads your Claude subscription's OAuth token and polls the Anthropic usage API on your behalf. The Anthropic [Terms and Conditions](https://www.anthropic.com/legal/consumer-terms) do not explicitly prohibit querying the usage API, but they do prohibit:
+> This tool reads your Claude subscription's OAuth token and polls the Anthropic usage API on your behalf. The Anthropic [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) do not explicitly prohibit querying the usage API, but they do — in substance — restrict accessing the Services through automated or non-human means (bots, scripts, etc.) *except* when you are accessing via an Anthropic API Key or where Anthropic otherwise explicitly permits it.
 >
-> > "Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it, to access the Services through automated or non-human means, whether through a bot, script, or otherwise"
+> **Please read the current terms yourself** — the exact wording may change, and the text above is a paraphrase, not a verbatim quote. See: <https://www.anthropic.com/legal/consumer-terms>.
 >
 > Because this script accesses the usage endpoint with your subscription credentials (not an API key) via automated means, it may fall under that restriction. Anthropic could, at their discretion, treat this as a violation, which may result in rate limiting, suspension, or termination of your account.
 >
