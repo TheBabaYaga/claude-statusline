@@ -20,7 +20,7 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 | Line | Segments |
 |------|----------|
 | **Line 1** | Directory (truncated), git branch with `+N -M` lines changed, model name |
-| **Line 2** | 5-hour usage dot bar, 7-day usage dot bar, reset times |
+| **Line 2** | Context window usage bar, 5-hour usage dot bar, 7-day usage dot bar, reset times |
 
 ### Dot colors
 

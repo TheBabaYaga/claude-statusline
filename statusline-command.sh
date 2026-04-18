@@ -241,9 +241,14 @@ parts=()
 [ -n "$model_part" ]  && parts+=("$model_part")
 line1="${parts[*]}"
 
-# ===== LINE 2: usage bars =====
+# ===== LINE 2: context window + usage bars =====
 line2=""
 sep=" ${dim}|${reset} "
+
+# Context window usage (from stdin JSON)
+ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
+ctx_bar=$(build_bar "$ctx_pct" 15)
+line2="${white}context:${reset} ${ctx_bar} ${cyan}${ctx_pct}%${reset}"
 
 if [ -n "$usage_data" ] && echo "$usage_data" | jq -e . >/dev/null 2>&1; then
     bar_width=10
@@ -268,7 +273,7 @@ if [ -n "$usage_data" ] && echo "$usage_data" | jq -e . >/dev/null 2>&1; then
     [ -n "$seven_reset_epoch" ] && seven_pace=$(calc_pace_pct "$seven_reset_epoch" 604800)
     seven_bar=$(build_bar "$seven_pct" "$bar_width" "$seven_pace")
 
-    line2="${white}current:${reset} ${five_bar} ${cyan}${five_pct}%${reset}"
+    line2+="${sep}${white}current:${reset} ${five_bar} ${cyan}${five_pct}%${reset}"
     [ -n "$five_reset_display" ] && line2+=" ${dim}resets ${five_reset_display}${reset}"
     line2+="${sep}${white}weekly:${reset} ${seven_bar} ${cyan}${seven_pct}%${reset}"
 fi
