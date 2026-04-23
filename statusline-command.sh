@@ -69,36 +69,19 @@ model_part=""
 [ -n "$model" ] && model_part=$(printf '\033[2m%s\033[0m' "$model")
 
 # ===== Build dot progress bar =====
-# Usage: build_bar <pct> <width> [pace_pct]
-# Filled dots color by pace; empty dots color by absolute remaining.
+# Usage: build_bar <pct> <width> [pace_pct] [mode]
+#   pace_pct set    -> filled dots: single color by pace delta (blue/green/yellow/red)
+#   mode=gradient   -> filled dots: per-dot gradient by position (green→orange→yellow→red)
+#   otherwise       -> filled dots: single color by overall usage (green/orange/yellow/red)
+# Empty dots are always colored by overall usage.
 build_bar() {
-    local pct=$1 width=$2 pace_pct="${3:-}"
+    local pct=$1 width=$2 pace_pct="${3:-}" mode="${4:-}"
 
     [ "$pct" -lt 0 ] 2>/dev/null && pct=0
     [ "$pct" -gt 100 ] 2>/dev/null && pct=100
 
     local filled=$(( pct * width / 100 ))
     local empty=$(( width - filled ))
-
-    local filled_color
-    if [ -n "$pace_pct" ] && [ "$pace_pct" -ge 0 ] 2>/dev/null; then
-        local above_pace=$(( pct - pace_pct ))
-        if [ "$above_pace" -lt 0 ]; then
-            filled_color="$blue"
-        elif [ "$above_pace" -le 20 ]; then
-            filled_color="$green"
-        elif [ "$above_pace" -le 50 ]; then
-            filled_color="$yellow"
-        else
-            filled_color="$red"
-        fi
-    else
-        if [ "$pct" -ge 90 ]; then filled_color="$red"
-        elif [ "$pct" -ge 70 ]; then filled_color="$yellow"
-        elif [ "$pct" -ge 50 ]; then filled_color="$orange"
-        else filled_color="$green"
-        fi
-    fi
 
     local empty_color
     if [ "$pct" -ge 90 ]; then empty_color="$red"
@@ -107,11 +90,40 @@ build_bar() {
     else empty_color="$dim"
     fi
 
-    local filled_str="" empty_str=""
-    for ((i=0; i<filled; i++)); do filled_str+="●"; done
+    local filled_str="" i c
+    if [ -n "$pace_pct" ] && [ "$pace_pct" -ge 0 ] 2>/dev/null; then
+        local above_pace=$(( pct - pace_pct ))
+        if [ "$above_pace" -lt 0 ]; then c="$blue"
+        elif [ "$above_pace" -le 20 ]; then c="$green"
+        elif [ "$above_pace" -le 50 ]; then c="$yellow"
+        else c="$red"
+        fi
+        filled_str="$c"
+        for ((i=0; i<filled; i++)); do filled_str+="●"; done
+    elif [ "$mode" = "gradient" ]; then
+        for ((i=0; i<filled; i++)); do
+            local pos=$(( (i + 1) * 100 / width ))
+            if [ "$pos" -ge 90 ]; then c="$red"
+            elif [ "$pos" -ge 70 ]; then c="$yellow"
+            elif [ "$pos" -ge 50 ]; then c="$orange"
+            else c="$green"
+            fi
+            filled_str+="${c}●"
+        done
+    else
+        if [ "$pct" -ge 90 ]; then c="$red"
+        elif [ "$pct" -ge 70 ]; then c="$yellow"
+        elif [ "$pct" -ge 50 ]; then c="$orange"
+        else c="$green"
+        fi
+        filled_str="$c"
+        for ((i=0; i<filled; i++)); do filled_str+="●"; done
+    fi
+
+    local empty_str=""
     for ((i=0; i<empty; i++)); do empty_str+="○"; done
 
-    printf '%b' "${filled_color}${filled_str}${empty_color}${empty_str}${reset}"
+    printf '%b' "${filled_str}${empty_color}${empty_str}${reset}"
 }
 
 # ===== Pace: how far through the window we are (0-100) =====
@@ -204,7 +216,7 @@ seven_resets=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty'
 [[ "$seven_pct"   =~ ^[0-9]+$ ]] || seven_pct=""
 [[ "$seven_resets" =~ ^[0-9]+$ ]] || seven_resets=""
 
-ctx_bar=$(build_bar "$ctx_pct" 15)
+ctx_bar=$(build_bar "$ctx_pct" 15 "" "gradient")
 line2="${white}context:${reset} ${ctx_bar} ${cyan}${ctx_pct}%${reset}"
 
 if [ -n "$five_pct" ]; then

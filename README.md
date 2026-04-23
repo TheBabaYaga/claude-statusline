@@ -15,25 +15,34 @@ All data comes from the JSON that Claude Code pipes to the statusline script on 
 
 ### Dot colors
 
-Filled dots (●) reflect your **pace** — how fast you're consuming quota relative to time remaining:
+Each bar colors its **filled dots (●)** differently, depending on what the bar is measuring:
 
-| Color | Meaning |
-|-------|---------|
-| Blue | Under pace (healthy buffer) |
-| Green | Within 20% of pace (on track) |
-| Yellow | 20-50% above pace (outpacing) |
-| Red | 50%+ above pace (significantly outpacing) |
+**Context bar — per-dot gradient.** Each filled dot's color reflects the usage level its position represents, so the bar visually scales from green (low) to red (full):
 
-Pace coloring only applies to the 5-hour and 7-day bars. The context bar has no reset window, so its filled dots use the absolute-remaining scale below.
+| Dot position | Color |
+|--------------|-------|
+| 0-49% | Green |
+| 50-69% | Orange |
+| 70-89% | Yellow |
+| 90%+ | Red |
 
-Empty dots (○) reflect **absolute remaining**:
+**5-hour / 7-day bars — pace coloring.** Filled dots are a single color reflecting how fast you're consuming quota relative to time elapsed in the window:
 
-| Color | Meaning |
-|-------|---------|
-| Dim | Under 50% used |
-| Orange | 50-69% used |
-| Yellow | 70-89% used |
-| Red | 90%+ used |
+| Pace delta | Color | Meaning |
+|------------|-------|---------|
+| Below pace | Blue | Under pace (healthy buffer) |
+| 0-20% above | Green | Within 20% of pace (on track) |
+| 20-50% above | Yellow | Outpacing |
+| 50%+ above | Red | Significantly outpacing |
+
+**Empty dots (○) — all bars.** Colored by overall usage:
+
+| Usage | Color |
+|-------|-------|
+| <50% | Dim |
+| 50-69% | Orange |
+| 70-89% | Yellow |
+| 90%+ | Red |
 
 ## Prerequisites
 
