@@ -24,6 +24,8 @@ Filled dots (●) reflect your **pace** — how fast you're consuming quota rela
 | Yellow | 20-50% above pace (outpacing) |
 | Red | 50%+ above pace (significantly outpacing) |
 
+Pace coloring only applies to the 5-hour and 7-day bars. The context bar has no reset window, so its filled dots use the absolute-remaining scale below.
+
 Empty dots (○) reflect **absolute remaining**:
 
 | Color | Meaning |
