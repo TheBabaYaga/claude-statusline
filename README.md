@@ -1,26 +1,17 @@
 # claude-statusline
 
-A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that shows your directory, git status, model, and API usage at a glance.
+A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that shows your directory, git status, model, and usage limits at a glance.
 
 ![preview](assets/statusline-preview.png)
-
-> [!WARNING]
-> **Disclaimer — use at your own risk.**
->
-> This tool reads your Claude subscription's OAuth token and polls the Anthropic usage API on your behalf. The Anthropic [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) do not explicitly prohibit querying the usage API, but they do — in substance — restrict accessing the Services through automated or non-human means (bots, scripts, etc.) *except* when you are accessing via an Anthropic API Key or where Anthropic otherwise explicitly permits it.
->
-> **Please read the current terms yourself** — the exact wording may change, and the text above is a paraphrase, not a verbatim quote. See: <https://www.anthropic.com/legal/consumer-terms>.
->
-> Because this script accesses the usage endpoint with your subscription credentials (not an API key) via automated means, it may fall under that restriction. Anthropic could, at their discretion, treat this as a violation, which may result in rate limiting, suspension, or termination of your account.
->
-> **You assume all risk for using this tool.** The authors provide no warranty and accept no liability for any consequences. If you are not comfortable with this risk, do not install or run this script.
 
 ## Features
 
 | Line | Segments |
 |------|----------|
-| **Line 1** | Directory (truncated), git branch with `+N -M` lines changed, model name |
-| **Line 2** | Context window usage bar, 5-hour usage dot bar, 7-day usage dot bar, reset times |
+| **Line 1** | Directory, git branch with ahead/behind + `+N -M` lines + untracked count, model name |
+| **Line 2** | Context window usage bar, 5-hour usage dot bar, 7-day usage dot bar, countdown + absolute reset time |
+
+All data comes from the JSON that Claude Code pipes to the statusline script on stdin. **No API calls, no auth tokens, no caching.**
 
 ### Dot colors
 
@@ -46,7 +37,6 @@ Empty dots (○) reflect **absolute remaining**:
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - [`jq`](https://jqlang.github.io/jq/) — JSON processor
-- `curl` — HTTP client (pre-installed on macOS/Linux)
 - `git` — for branch/diff info (pre-installed on most systems)
 
 ## Install
@@ -104,9 +94,13 @@ The install script will:
 
 ## How it works
 
-- **Git info**: Runs `git diff --numstat` (unstaged) and `git diff --cached --numstat` (staged) to count lines added/removed.
-- **API usage**: Reads your OAuth token from macOS Keychain (or `~/.claude/.credentials.json` on Linux) and calls the Anthropic usage API. Responses are cached to `~/.cache/claude-statusline/` for 5 minutes to avoid rate limiting.
-- **Security**: Auth tokens are passed to curl via stdin (not visible in `ps`), cache directory is `chmod 700`, and all external input is validated before use.
+Claude Code invokes the statusline script after every response and pipes it a JSON payload on stdin containing the current directory, model, context-window usage, and rate-limit state (percentages and reset epochs for the 5-hour and 7-day windows). The script reads that JSON with `jq`, runs `git` locally for branch stats, and prints a formatted string.
+
+- **No network access.** The script never contacts Anthropic (or anything else).
+- **No credentials.** No OAuth token, keychain lookup, or API key is read.
+- **Input is validated.** The working directory is rejected unless it's an absolute path, and rate-limit numbers are rejected unless they're plain non-negative integers — so nothing untrusted reaches shell arithmetic.
+
+The `rate_limits` block is only populated for Claude.ai Pro/Max subscribers after the first API response; if it's absent, the 5-hour and 7-day bars are simply omitted.
 
 ## License
 

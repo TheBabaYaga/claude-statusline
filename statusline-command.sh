@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Claude Code status line — directory, git, model, API usage with dot progress
+# Claude Code status line — directory, git, model, context + rate limits.
+# Reads everything from Claude Code's stdin JSON. No API call, no auth tokens.
 set -fo pipefail  # disable globbing, catch pipe failures
 
 input=$(cat)
@@ -25,14 +26,10 @@ cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 [[ "$cwd" == /* ]] || cwd=""  # reject non-absolute paths (prevents flag injection)
 model=$(echo "$input" | jq -r '.model.display_name // empty')
 
-# --- Directory (truncate to last 3 segments) ---
+# --- Directory (current dir only) ---
 dir_display=""
 if [ -n "$cwd" ]; then
-    dir_display=$(echo "$cwd" | awk -F'/' '{
-        n = split($0, parts, "/")
-        if (n <= 3) { print $0 }
-        else { print "..." "/" parts[n-2] "/" parts[n-1] "/" parts[n] }
-    }')
+    dir_display=$(basename "$cwd")
     dir_display=$(printf '\033[44;97;1m %s \033[0m' "$dir_display")
 fi
 
@@ -41,7 +38,6 @@ git_part=""
 if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
     branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
     if [ -n "$branch" ]; then
-        # Count lines added/removed (staged + unstaged)
         diff_stat=$(git -C "$cwd" diff --numstat 2>/dev/null; git -C "$cwd" diff --cached --numstat 2>/dev/null)
         added=0
         removed=0
@@ -49,8 +45,21 @@ if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
             added=$(echo "$diff_stat" | awk '$1 ~ /^[0-9]+$/ {s+=$1} END {print s+0}')
             removed=$(echo "$diff_stat" | awk '$2 ~ /^[0-9]+$/ {s+=$2} END {print s+0}')
         fi
+
+        ahead=0
+        behind=0
+        if upstream=$(git -C "$cwd" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null); then
+            behind=$(echo "$upstream" | awk '{print $1+0}')
+            ahead=$(echo "$upstream" | awk '{print $2+0}')
+        fi
+
+        untracked=$(git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null | awk 'END {print NR+0}')
+
         branch_label=" $branch"
+        [ "$ahead" -gt 0 ] && branch_label="$branch_label ↑${ahead}"
+        [ "$behind" -gt 0 ] && branch_label="$branch_label ↓${behind}"
         [ "$added" -gt 0 ] || [ "$removed" -gt 0 ] && branch_label="$branch_label +${added} -${removed}"
+        [ "$untracked" -gt 0 ] && branch_label="$branch_label ?${untracked}"
         git_part=$(printf '\033[48;5;208;30;1m%s \033[0m' "$branch_label")
     fi
 fi
@@ -61,7 +70,7 @@ model_part=""
 
 # ===== Build dot progress bar =====
 # Usage: build_bar <pct> <width> [pace_pct]
-# Filled dots color by pace; empty dots color by absolute remaining
+# Filled dots color by pace; empty dots color by absolute remaining.
 build_bar() {
     local pct=$1 width=$2 pace_pct="${3:-}"
 
@@ -71,7 +80,6 @@ build_bar() {
     local filled=$(( pct * width / 100 ))
     local empty=$(( width - filled ))
 
-    # Filled dot color: pace-based
     local filled_color
     if [ -n "$pace_pct" ] && [ "$pace_pct" -ge 0 ] 2>/dev/null; then
         local above_pace=$(( pct - pace_pct ))
@@ -92,7 +100,6 @@ build_bar() {
         fi
     fi
 
-    # Empty dot color: absolute remaining
     local empty_color
     if [ "$pct" -ge 90 ]; then empty_color="$red"
     elif [ "$pct" -ge 70 ]; then empty_color="$yellow"
@@ -107,37 +114,7 @@ build_bar() {
     printf '%b' "${filled_color}${filled_str}${empty_color}${empty_str}${reset}"
 }
 
-# ===== OAuth token from macOS Keychain =====
-get_oauth_token() {
-    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-        echo "$CLAUDE_CODE_OAUTH_TOKEN"
-        return 0
-    fi
-    if command -v security >/dev/null 2>&1; then
-        local blob
-        blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-        if [ -n "$blob" ]; then
-            local token
-            token=$(echo "$blob" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
-            if [ -n "$token" ] && [ "$token" != "null" ]; then
-                echo "$token"
-                return 0
-            fi
-        fi
-    fi
-    local creds_file="${HOME}/.claude/.credentials.json"
-    if [ -f "$creds_file" ]; then
-        local token
-        token=$(jq -r '.claudeAiOauth.accessToken // empty' "$creds_file" 2>/dev/null)
-        if [ -n "$token" ] && [ "$token" != "null" ]; then
-            echo "$token"
-            return 0
-        fi
-    fi
-    echo ""
-}
-
-# ===== Calculate pace percentage =====
+# ===== Pace: how far through the window we are (0-100) =====
 calc_pace_pct() {
     local resets_epoch=$1 window_secs=$2
     [ -z "$resets_epoch" ] || [ -z "$window_secs" ] && return
@@ -148,90 +125,59 @@ calc_pace_pct() {
     local elapsed=$(( now_ts - window_start ))
     [ "$elapsed" -lt 0 ] && elapsed=0
     [ "$elapsed" -gt "$window_secs" ] && elapsed="$window_secs"
-    awk -v elapsed="$elapsed" -v window="$window_secs" 'BEGIN {printf "%.0f", (elapsed / window) * 100}'
+    awk -v e="$elapsed" -v w="$window_secs" 'BEGIN {printf "%.0f", (e / w) * 100}'
 }
 
-# ===== ISO to epoch (cross-platform) =====
-iso_to_epoch() {
-    local iso_str="$1"
-    # Validate input contains only expected ISO 8601 characters
-    [[ "$iso_str" =~ ^[0-9T:Z.+\ -]+$ ]] || return 1
-    local epoch
-    epoch=$(date -d "${iso_str}" +%s 2>/dev/null)
-    if [ -n "$epoch" ]; then echo "$epoch"; return 0; fi
-    local stripped="${iso_str%%.*}"
-    stripped="${stripped%%Z}"
-    stripped="${stripped%%+*}"
-    stripped="${stripped%%-[0-9][0-9]:[0-9][0-9]}"
-    if [[ "$iso_str" == *"Z"* ]] || [[ "$iso_str" == *"+00:00"* ]]; then
-        epoch=$(env TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$stripped" +%s 2>/dev/null)
+# ===== Countdown until reset =====
+# <60min  -> "45min"
+# <24h    -> "2h 30min" / "3h"
+# >=24h   -> "3d 2h" / "6d"
+format_reset_countdown() {
+    local ts=$1
+    [ -z "$ts" ] && return
+    local now diff_secs diff_mins
+    now=$(date +%s)
+    diff_secs=$(( ts - now ))
+    [ "$diff_secs" -le 0 ] && echo "now" && return
+    diff_mins=$(( (diff_secs + 59) / 60 ))
+    if [ "$diff_mins" -lt 60 ]; then
+        echo "${diff_mins}min"
+    elif [ "$diff_mins" -lt 1440 ]; then
+        local h=$(( diff_mins / 60 )) m=$(( diff_mins % 60 ))
+        if [ "$m" -eq 0 ]; then echo "${h}h"; else echo "${h}h ${m}min"; fi
     else
-        epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$stripped" +%s 2>/dev/null)
-    fi
-    [ -n "$epoch" ] && echo "$epoch" && return 0
-    return 1
-}
-
-# ===== Format reset time =====
-format_reset_time() {
-    local iso_str="$1"
-    [ -z "$iso_str" ] || [ "$iso_str" = "null" ] && return
-    local epoch
-    epoch=$(iso_to_epoch "$iso_str")
-    [ -z "$epoch" ] && return
-    local result
-    result=$(date -j -r "$epoch" +"%l:%M%p" 2>/dev/null)
-    if [ -n "$result" ]; then
-        echo "$result" | sed 's/^ //' | tr '[:upper:]' '[:lower:]'
-    else
-        date -d "@$epoch" +"%l:%M%P" 2>/dev/null | sed 's/^ //'
+        local d=$(( diff_mins / 1440 )) h=$(( (diff_mins % 1440) / 60 ))
+        if [ "$h" -eq 0 ]; then echo "${d}d"; else echo "${d}d ${h}h"; fi
     fi
 }
 
-# ===== API Usage (cached) =====
-# Use a user-private cache directory to avoid symlink attacks in /tmp
-cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/claude-statusline"
-mkdir -p "$cache_dir"
-chmod 700 "$cache_dir"
-cache_file="$cache_dir/usage-cache.json"
-cache_max_age=300
-
-is_valid_usage() {
-    [ -n "$1" ] && echo "$1" | jq -e '.five_hour' >/dev/null 2>&1
+# ===== Absolute reset time =====
+# <24h  -> "1:10pm"
+# >=24h -> "Sun 10:45am"
+format_reset_absolute() {
+    local ts=$1
+    [ -z "$ts" ] && return
+    local now diff_secs fmt raw
+    now=$(date +%s)
+    diff_secs=$(( ts - now ))
+    [ "$diff_secs" -le 0 ] && return
+    if [ "$diff_secs" -lt 86400 ]; then fmt="%l:%M%p"; else fmt="%a %l:%M%p"; fi
+    raw=$(date -r "$ts" "+$fmt" 2>/dev/null || date -d "@$ts" "+$fmt" 2>/dev/null)
+    [ -z "$raw" ] && return
+    echo "$raw" | sed -e 's/  */ /g' -e 's/^ //' -e 's/AM$/am/' -e 's/PM$/pm/'
 }
 
-needs_refresh=true
-usage_data=""
-
-if [ -f "$cache_file" ]; then
-    cached=$(cat "$cache_file" 2>/dev/null)
-    if is_valid_usage "$cached"; then
-        usage_data="$cached"
-        cache_mtime=$(stat -f %m "$cache_file" 2>/dev/null || stat -c %Y "$cache_file" 2>/dev/null)
-        now=$(date +%s)
-        cache_age=$(( now - cache_mtime ))
-        [ "$cache_age" -lt "$cache_max_age" ] && needs_refresh=false
+format_reset_segment() {
+    local ts=$1
+    [ -z "$ts" ] && return
+    local cd abs
+    cd=$(format_reset_countdown "$ts")
+    abs=$(format_reset_absolute "$ts")
+    if [ -n "$cd" ] && [ -n "$abs" ]; then echo "( $cd - $abs )"
+    elif [ -n "$cd" ]; then echo "( $cd )"
+    elif [ -n "$abs" ]; then echo "( $abs )"
     fi
-fi
-
-if $needs_refresh; then
-    token=$(get_oauth_token)
-    if [ -n "$token" ] && [ "$token" != "null" ]; then
-        # Pass auth header via stdin to avoid token exposure in process list
-        response=$(curl -s --max-time 5 \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -H @- \
-            -H "anthropic-beta: oauth-2025-04-20" \
-            -H "User-Agent: claude-code/2.1.69" \
-            "https://api.anthropic.com/api/oauth/usage" <<< "Authorization: Bearer $token" 2>/dev/null)
-        if is_valid_usage "$response"; then
-            usage_data="$response"
-            install -m 600 /dev/null "$cache_file" 2>/dev/null
-            echo "$response" > "$cache_file"
-        fi
-    fi
-fi
+}
 
 # ===== LINE 1: dir | git branch +N -M | model =====
 line1=""
@@ -241,41 +187,42 @@ parts=()
 [ -n "$model_part" ]  && parts+=("$model_part")
 line1="${parts[*]}"
 
-# ===== LINE 2: context window + usage bars =====
+# ===== LINE 2: context window + rate limits (from stdin, no API call) =====
 line2=""
 sep=" ${dim}|${reset} "
 
-# Context window usage (from stdin JSON)
 ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
+five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty' | cut -d. -f1)
+five_resets=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+seven_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty' | cut -d. -f1)
+seven_resets=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+
+# Reject anything that isn't a plain non-negative integer before it reaches arithmetic.
+[[ "$ctx_pct"     =~ ^[0-9]+$ ]] || ctx_pct=0
+[[ "$five_pct"    =~ ^[0-9]+$ ]] || five_pct=""
+[[ "$five_resets" =~ ^[0-9]+$ ]] || five_resets=""
+[[ "$seven_pct"   =~ ^[0-9]+$ ]] || seven_pct=""
+[[ "$seven_resets" =~ ^[0-9]+$ ]] || seven_resets=""
+
 ctx_bar=$(build_bar "$ctx_pct" 15)
 line2="${white}context:${reset} ${ctx_bar} ${cyan}${ctx_pct}%${reset}"
 
-if [ -n "$usage_data" ] && echo "$usage_data" | jq -e . >/dev/null 2>&1; then
-    bar_width=10
-
-    # 5-hour (current)
-    five_pct=$(echo "$usage_data" | jq -r '.five_hour.utilization // 0' | awk '{printf "%.0f", $1}')
-    five_reset_iso=$(echo "$usage_data" | jq -r '.five_hour.resets_at // empty')
-    five_reset_epoch=""
-    [ -n "$five_reset_iso" ] && five_reset_epoch=$(iso_to_epoch "$five_reset_iso")
+if [ -n "$five_pct" ]; then
     five_pace=""
-    [ -n "$five_reset_epoch" ] && five_pace=$(calc_pace_pct "$five_reset_epoch" 18000)
-    five_bar=$(build_bar "$five_pct" "$bar_width" "$five_pace")
-    five_reset_display=""
-    [ -n "$five_reset_iso" ] && five_reset_display=$(format_reset_time "$five_reset_iso")
-
-    # 7-day (weekly)
-    seven_pct=$(echo "$usage_data" | jq -r '.seven_day.utilization // 0' | awk '{printf "%.0f", $1}')
-    seven_reset_iso=$(echo "$usage_data" | jq -r '.seven_day.resets_at // empty')
-    seven_reset_epoch=""
-    [ -n "$seven_reset_iso" ] && seven_reset_epoch=$(iso_to_epoch "$seven_reset_iso")
-    seven_pace=""
-    [ -n "$seven_reset_epoch" ] && seven_pace=$(calc_pace_pct "$seven_reset_epoch" 604800)
-    seven_bar=$(build_bar "$seven_pct" "$bar_width" "$seven_pace")
-
+    [ -n "$five_resets" ] && five_pace=$(calc_pace_pct "$five_resets" 18000)
+    five_bar=$(build_bar "$five_pct" 10 "$five_pace")
     line2+="${sep}${white}current:${reset} ${five_bar} ${cyan}${five_pct}%${reset}"
-    [ -n "$five_reset_display" ] && line2+=" ${dim}resets ${five_reset_display}${reset}"
+    five_seg=$(format_reset_segment "$five_resets")
+    [ -n "$five_seg" ] && line2+=" ${dim}${five_seg}${reset}"
+fi
+
+if [ -n "$seven_pct" ]; then
+    seven_pace=""
+    [ -n "$seven_resets" ] && seven_pace=$(calc_pace_pct "$seven_resets" 604800)
+    seven_bar=$(build_bar "$seven_pct" 10 "$seven_pace")
     line2+="${sep}${white}weekly:${reset} ${seven_bar} ${cyan}${seven_pct}%${reset}"
+    seven_seg=$(format_reset_segment "$seven_resets")
+    [ -n "$seven_seg" ] && line2+=" ${dim}${seven_seg}${reset}"
 fi
 
 # ===== Output =====
