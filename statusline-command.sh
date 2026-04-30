@@ -179,6 +179,22 @@ format_reset_absolute() {
     echo "$raw" | sed -e 's/  */ /g' -e 's/^ //' -e 's/AM$/am/' -e 's/PM$/pm/'
 }
 
+format_tokens() {
+    local n=$1
+    [ -z "$n" ] && return
+    awk -v n="$n" 'BEGIN {
+        if (n >= 1000000) {
+            v = n / 1000000
+            if (v == int(v)) printf "%dm", v
+            else printf "%.1fm", v
+        } else if (n >= 1000) {
+            printf "%.0fk", n / 1000
+        } else {
+            printf "%d", n
+        }
+    }'
+}
+
 format_reset_segment() {
     local ts=$1
     [ -z "$ts" ] && return
@@ -216,8 +232,22 @@ seven_resets=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty'
 [[ "$seven_pct"   =~ ^[0-9]+$ ]] || seven_pct=""
 [[ "$seven_resets" =~ ^[0-9]+$ ]] || seven_resets=""
 
+ctx_max=$(echo "$input"          | jq -r '.context_window.context_window_size // empty')
+ctx_input=$(echo "$input"        | jq -r '.context_window.current_usage.input_tokens // empty')
+ctx_cache_create=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // empty')
+ctx_cache_read=$(echo "$input"   | jq -r '.context_window.current_usage.cache_read_input_tokens // empty')
+
+[[ "$ctx_max"          =~ ^[0-9]+$ ]] || ctx_max=""
+[[ "$ctx_input"        =~ ^[0-9]+$ ]] || ctx_input=""
+[[ "$ctx_cache_create" =~ ^[0-9]+$ ]] || ctx_cache_create=0
+[[ "$ctx_cache_read"   =~ ^[0-9]+$ ]] || ctx_cache_read=0
+
 ctx_bar=$(build_bar "$ctx_pct" 15 "" "gradient")
 line2="${white}context:${reset} ${ctx_bar} ${cyan}${ctx_pct}%${reset}"
+if [ -n "$ctx_input" ] && [ -n "$ctx_max" ]; then
+    ctx_used=$(( ctx_input + ctx_cache_create + ctx_cache_read ))
+    line2+=" ${dim}($(format_tokens "$ctx_used")/$(format_tokens "$ctx_max"))${reset}"
+fi
 
 if [ -n "$five_pct" ]; then
     five_pace=""

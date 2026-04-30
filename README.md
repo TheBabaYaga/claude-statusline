@@ -9,7 +9,7 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 | Line | Segments |
 |------|----------|
 | **Line 1** | Directory, git branch with ahead/behind + `+N -M` lines + untracked count, model name |
-| **Line 2** | Context window usage bar, 5-hour usage dot bar, 7-day usage dot bar, countdown + absolute reset time |
+| **Line 2** | Context window usage bar with absolute token counts (e.g. `118k/1m`), 5-hour usage dot bar, 7-day usage dot bar, countdown + absolute reset time |
 
 All data comes from the JSON that Claude Code pipes to the statusline script on stdin. **No API calls, no auth tokens, no caching.**
 
@@ -102,6 +102,12 @@ The install script will:
    ```
 
 4. Restart Claude Code.
+
+### Updating
+
+```bash
+git pull && ./install.sh
+```
 
 ## How it works
 
