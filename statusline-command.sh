@@ -25,6 +25,7 @@ reset='\033[0m'
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 [[ "$cwd" == /* ]] || cwd=""  # reject non-absolute paths (prevents flag injection)
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
 
 # --- Directory (current dir only) ---
 dir_display=""
@@ -56,11 +57,15 @@ if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
         untracked=$(git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null | awk 'END {print NR+0}')
 
         branch_label=" $branch"
+        [ -n "$git_worktree" ] && branch_label=" ⎇ $branch"
         [ "$ahead" -gt 0 ] && branch_label="$branch_label ↑${ahead}"
         [ "$behind" -gt 0 ] && branch_label="$branch_label ↓${behind}"
         [ "$added" -gt 0 ] || [ "$removed" -gt 0 ] && branch_label="$branch_label +${added} -${removed}"
         [ "$untracked" -gt 0 ] && branch_label="$branch_label ?${untracked}"
-        git_part=$(printf '\033[48;5;208;30;1m%s \033[0m' "$branch_label")
+        # Orange chip for main checkout, purple for a linked worktree branch
+        chip_bg=208
+        [ -n "$git_worktree" ] && chip_bg=99
+        git_part=$(printf '\033[48;5;%s;30;1m%s \033[0m' "$chip_bg" "$branch_label")
     fi
 fi
 

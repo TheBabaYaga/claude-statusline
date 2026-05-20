@@ -13,6 +13,14 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 
 All data comes from the JSON that Claude Code pipes to the statusline script on stdin. **No API calls, no auth tokens, no caching.**
 
+### Worktree indicator
+
+When Claude Code is running inside a [linked git worktree](https://git-scm.com/docs/git-worktree), the branch chip switches from orange to purple and is prefixed with `⎇`, so you can tell at a glance whether you're on the main checkout or a worktree branch:
+
+![worktree indicator](assets/worktree-indicator.png)
+
+This is driven by the `workspace.git_worktree` field in Claude Code's stdin JSON — which is populated whenever the session's current directory is inside a linked worktree (not the main repo). The directory chip on the left already shows the worktree's folder name, so the colored branch chip just adds the "this is a worktree branch" signal without taking extra horizontal space.
+
 ### Dot colors
 
 Each bar colors its **filled dots (●)** differently, depending on what the bar is measuring:
