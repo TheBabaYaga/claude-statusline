@@ -25,6 +25,7 @@ reset='\033[0m'
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 [[ "$cwd" == /* ]] || cwd=""  # reject non-absolute paths (prevents flag injection)
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+effort=$(echo "$input" | jq -r '.effort.level // empty')
 git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
 
 # --- Directory (current dir only) ---
@@ -69,9 +70,12 @@ if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
     fi
 fi
 
-# --- Model ---
+# --- Model (+ effort level when the model supports it) ---
 model_part=""
-[ -n "$model" ] && model_part=$(printf '\033[2m%s\033[0m' "$model")
+if [ -n "$model" ]; then
+    model_part=$(printf '\033[2m%s\033[0m' "$model")
+    [ -n "$effort" ] && model_part="${model_part} ${dim}·${reset} ${cyan}${effort}${reset}"
+fi
 
 # ===== Build dot progress bar =====
 # Usage: build_bar <pct> <width> [pace_pct] [mode]

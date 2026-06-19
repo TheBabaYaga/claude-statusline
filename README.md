@@ -8,7 +8,7 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 
 | Line | Segments |
 |------|----------|
-| **Line 1** | Directory, git branch with ahead/behind + `+N -M` lines + untracked count, model name |
+| **Line 1** | Directory, git branch with ahead/behind + `+N -M` lines + untracked count, model name + reasoning effort level |
 | **Line 2** | Context window usage bar with absolute token counts (e.g. `118k/1m`), 5-hour usage dot bar, 7-day usage dot bar, countdown + absolute reset time |
 
 All data comes from the JSON that Claude Code pipes to the statusline script on stdin. **No API calls, no auth tokens, no caching.**
@@ -20,6 +20,10 @@ When Claude Code is running inside a [linked git worktree](https://git-scm.com/d
 ![worktree indicator](assets/worktree-indicator.png)
 
 This is driven by the `workspace.git_worktree` field in Claude Code's stdin JSON — which is populated whenever the session's current directory is inside a linked worktree (not the main repo). The directory chip on the left already shows the worktree's folder name, so the colored branch chip just adds the "this is a worktree branch" signal without taking extra horizontal space.
+
+### Effort level
+
+When the active model supports a reasoning effort setting, the level is shown in cyan right after the model name, separated by a dim `·` (e.g. `Opus 4.8 · high`). This is driven by the `effort.level` field in Claude Code's stdin JSON. If the field is absent — because the model doesn't expose an effort setting — nothing is added and only the model name is shown.
 
 ### Dot colors
 
