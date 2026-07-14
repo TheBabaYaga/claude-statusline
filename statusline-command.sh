@@ -23,7 +23,12 @@ reset='\033[0m'
 
 # ===== Extract data from JSON =====
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
-[[ "$cwd" == /* ]] || cwd=""  # reject non-absolute paths (prevents flag injection)
+cwd=${cwd//\\//}  # normalize Windows backslashes to forward slashes
+# reject non-absolute paths (prevents flag injection); accept POSIX (/...) and Windows drive (C:/...) paths
+case "$cwd" in
+    /* | [A-Za-z]:/*) ;;
+    *) cwd="" ;;
+esac
 model=$(echo "$input" | jq -r '.model.display_name // empty')
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // empty')
