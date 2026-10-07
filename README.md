@@ -4,6 +4,15 @@ A rich statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 
 ![preview](assets/statusline-preview.png)
 
+There are two versions:
+
+| Version | What it is | Where it shows |
+|---------|------------|----------------|
+| v1 | A shell script that Claude Code runs as its `statusLine` command | The terminal, below the prompt |
+| v2 | A Claude Code mod in [`mod/`](mod) | The terminal and the Claude Desktop Code tab, above the prompt |
+
+The sections from [Features](#features) to [Updating](#updating) describe v1. For v2, go to [v2: mod for the terminal and Claude Desktop](#v2-mod-for-the-terminal-and-claude-desktop). The release notes are in [CHANGELOG.md](CHANGELOG.md).
+
 ## Features
 
 | Line | Segments |
@@ -146,21 +155,39 @@ The mod refreshes after each turn, when usage changes, and every 30 seconds. It 
 
 ### Install v2
 
-Add the `mod` folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Claude Desktop and the terminal both read this value:
+1. Clone the repository:
 
-```json
-{
-  "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/claude-statusline/mod"
-  }
-}
-```
+   ```bash
+   git clone git@github.com:TheBabaYaga/claude-statusline.git
+   ```
 
-Then start a new session. To try it in one terminal session only, use `claude --plugin-dir ./mod`.
+2. Add the absolute path of its `mod` folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Claude Desktop and the terminal both read this value:
+
+   ```json
+   {
+     "env": {
+       "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/claude-statusline/mod"
+     }
+   }
+   ```
+
+3. Start a new session.
+
+To try it in one terminal session only, use `claude --plugin-dir ./mod`.
 
 In the terminal, the model name is a button that opens the `/model` picker. Click it in fullscreen mode, or press `ctrl+x tab` and then `m`.
 
 In the terminal, v1 and v2 both show if you keep the `statusLine` setting. Remove `statusLine` from `~/.claude/settings.json` to show only v2.
+
+### Update v2
+
+Claude Code loads the mod from your clone, so v2 needs no install step. Pull the changes, then start a new session:
+
+```bash
+git pull
+```
+
+The mod runs the files that your clone has checked out. Keep `main` checked out to run the released version.
 
 ### Develop v2
 
@@ -181,6 +208,8 @@ Claude Code invokes the statusline script after every response and pipes it a JS
 - **No network access.** The script never contacts Anthropic (or anything else).
 - **No credentials.** No OAuth token, keychain lookup, or API key is read.
 - **Input is validated.** The working directory is rejected unless it's an absolute path, and rate-limit numbers are rejected unless they're plain non-negative integers — so nothing untrusted reaches shell arithmetic.
+
+v2 runs inside Claude Code. It reads the same data through the mod API and runs only `git` on your machine. It makes no network calls and reads no credentials.
 
 The `rate_limits` block is only populated for Claude.ai Pro/Max subscribers after the first API response; if it's absent, the 5-hour and 7-day bars are simply omitted.
 
