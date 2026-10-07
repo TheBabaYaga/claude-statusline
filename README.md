@@ -145,7 +145,7 @@ v2 uses the same colors as v1. It gets its data from the mod API, not from stdin
 
 The bars are smooth instead of dotted. Claude Desktop draws each bar as an SVG, exact to the pixel. The terminal draws it with block characters in 1/8-cell steps (`███▊░░░`). The colors follow the v1 rules. The context bar fills from `tokens / window`, so it is finer than a whole percent.
 
-To fit on one line, v2 uses short labels (`ctx`, `5h`, `7d`). The line wraps between segments when the band is too narrow:
+To fit on one line, v2 uses short labels (`ctx`, `5h`, `7d`). When the band is too narrow, the line breaks between segments. A `|` shows only between two segments on the same line:
 
 ```text
  claude-statusline   feat/v2-mod +43 -0 ?9  Opus 5.5 · high | ctx ██▍░░░░░░░░░░░░ 16% 161k/1m | 5h ▎░░░░░░░░░ 3% ( 4h 21min - 2:00pm ) | 7d █░░░░░░░░░ 10% ( 4d 2h - Sun 12:00pm )

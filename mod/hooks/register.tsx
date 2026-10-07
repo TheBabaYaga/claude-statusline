@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Git, View } from '../types'
-import { barSegs, barSvg, parseStatus, row, sumNumstat } from './format'
+import { barSegs, barSvg, lines, parseStatus, row, sumNumstat } from './format'
 import type { Item, Seg } from './format'
 
 const EMPTY: View = { dir: '', git: null, model: '', context: { window: 0 }, rateLimits: [], now: 0 }
@@ -171,9 +171,14 @@ export const register: Register = on => {
         <Text wrap="truncate">{items.flatMap(item => ('bar' in item ? barSegs(item.bar) : [item])).map(seg)}</Text>
       )
 
+    // The desktop font has no fixed width, so its lines still wrap if the count is short.
     return (
-      <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-        {row(v).map(group)}
+      <Box flexDirection="column">
+        {lines(row(v), e.props.bodyColumns, !Svg).map(line => (
+          <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
+            {line.map(group)}
+          </Box>
+        ))}
       </Box>
     )
   })

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { barSegs, barSvg, C, clockTime, countdown, effortColor, modelName, paceOf, parseStatus, row, sumNumstat, tokens } from '../hooks/format'
-import type { Item } from '../hooks/format'
+import { barSegs, barSvg, C, clockTime, countdown, effortColor, lines, modelName, paceOf, parseStatus, row, sumNumstat, tokens } from '../hooks/format'
+import type { Group, Item } from '../hooks/format'
 
 const HOUR = 3_600_000
 
@@ -96,7 +96,7 @@ test('modelName shortens Claude model IDs', () => {
   expect(modelName('Opus 5.5')).toBe('Opus 5.5')
 })
 
-test('row lays out compact groups that wrap between each other', () => {
+test('row marks the groups that a separator goes before', () => {
   const now = Date.parse('2026-10-07T10:00:00Z')
   const groups = row({
     dir: 'repo',
@@ -110,18 +110,54 @@ test('row lays out compact groups that wrap between each other', () => {
     ],
     now,
   })
-  const text = groups.map(g => g.map(i => ('bar' in i ? barSegs(i.bar).map(s => s.text).join('') : i.text)).join(''))
-  expect(text.slice(0, 6)).toEqual([' repo ', ' ⎇ main ↑1 +5 -2 ?3 ', 'Opus 5.5 · high', '|', 'ctx █▊░░░░░░░░░░░░░ 11% 118k/1m', '|'])
-  expect(text[6]).toMatch(/^5h ██▍░{7} 23% \( 2h 30min - \d+:30[ap]m \)$/)
-  expect(text).toHaveLength(7)
-  expect(groups[1]?.[0]).toMatchObject({ bg: C.worktreeBg })
+  const text = groups.map(g => g.items.map(i => ('bar' in i ? barSegs(i.bar).map(s => s.text).join('') : i.text)).join(''))
+  expect(text.slice(0, 4)).toEqual([' repo ', ' ⎇ main ↑1 +5 -2 ?3 ', 'Opus 5.5 · high', 'ctx █▊░░░░░░░░░░░░░ 11% 118k/1m'])
+  expect(text[4]).toMatch(/^5h ██▍░{7} 23% \( 2h 30min - \d+:30[ap]m \)$/)
+  expect(text).toHaveLength(5)
+  expect(groups.map(g => g.sep ?? false)).toEqual([false, false, false, true, true])
+  expect(groups[1]?.items[0]).toMatchObject({ bg: C.worktreeBg })
 })
 
 test('row shows only the context bar when nothing else is known', () => {
   const groups = row({ dir: '', git: null, model: '', context: { window: 0 }, rateLimits: [], now: 0 })
   expect(groups).toHaveLength(1)
-  expect(groups[0]?.[1]).toMatchObject({ bar: { pct: 0 } })
-  expect(groups[0]).toHaveLength(3) // no token count before the first response
+  expect(groups[0]?.sep).toBeUndefined()
+  expect(groups[0]?.items[1]).toMatchObject({ bar: { pct: 0 } })
+  expect(groups[0]?.items).toHaveLength(3) // no token count before the first response
+})
+
+describe('lines', () => {
+  const g = (text: string, sep?: boolean): Group => ({ items: [{ text }], sep })
+  const show = (ls: Item[][][]) =>
+    ls.map(line => line.map(group => group.map(i => ('bar' in i ? '#'.repeat(i.bar.width) : i.text)).join('')).join(' '))
+
+  test('keeps one line when everything fits', () => {
+    expect(show(lines([g('aaaa'), g('bbbb', true), g('cccc', true)], 18, false))).toEqual(['aaaa | bbbb | cccc'])
+  })
+
+  test('wraps between groups and never puts a separator at a line edge', () => {
+    expect(show(lines([g('aaaa'), g('bbbb', true), g('cccc', true)], 17, false))).toEqual(['aaaa | bbbb', 'cccc'])
+    expect(show(lines([g('aaaa'), g('bbbb'), g('cccc', true)], 10, false))).toEqual(['aaaa bbbb', 'cccc'])
+  })
+
+  test('gives a group wider than the band a line of its own', () => {
+    expect(show(lines([g('aa'), g('bbbbbbbbbb', true), g('cc', true)], 6, false))).toEqual(['aa', 'bbbbbbbbbb', 'cc'])
+  })
+
+  test('counts bar cells, and the hotkeys and the effort dot in the terminal', () => {
+    const model: Group = {
+      items: [
+        { text: 'Opus 5.5', dim: true, button: 'model' },
+        { text: ' · ', dim: true },
+        { text: 'high', color: C.yellow, button: 'effort' },
+      ],
+    }
+    // terminal: "m: Opus 5.5" (11) + " · " (3) + "● e: high" (9) = 23. Desktop: 15.
+    const bar: Group = { items: [{ text: 'ctx ' }, { bar: { pct: 10, width: 15 } }], sep: true } // 19
+    expect(lines([model, bar], 45, true)).toHaveLength(1) // 23 + 3 + 19
+    expect(lines([model, bar], 44, true)).toHaveLength(2)
+    expect(lines([model, bar], 37, false)).toHaveLength(1) // 15 + 3 + 19
+  })
 })
 
 test('effortColor uses a heat scale', () => {

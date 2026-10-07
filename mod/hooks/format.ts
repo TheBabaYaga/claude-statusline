@@ -43,6 +43,8 @@ function push(segs: Seg[], seg: Seg) {
 // position, undefined by overall usage. The track is colored by overall usage.
 export type Bar = { pct: number; width: number; pace?: number | 'gradient' }
 export type Item = Seg | { bar: Bar }
+// sep: a "|" goes before the group when it shares a line with the group before.
+export type Group = { items: Item[]; sep?: boolean }
 
 const clamp = (pct: number) => Math.min(100, Math.max(0, pct))
 const BANDS: [number, number, string][] = [
@@ -190,10 +192,10 @@ export function modelName(id: string): string {
   return `${m[1][0]?.toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`
 }
 
-// One row of groups. The row wraps only between groups.
-export function row(v: View): Item[][] {
-  const groups: Item[][] = []
-  if (v.dir) groups.push([{ text: ` ${v.dir} `, color: C.dirText, bg: C.dirBg, bold: true }])
+// The groups of the status line, in order.
+export function row(v: View): Group[] {
+  const groups: Group[] = []
+  if (v.dir) groups.push({ items: [{ text: ` ${v.dir} `, color: C.dirText, bg: C.dirBg, bold: true }] })
 
   const g = v.git
   if (g && g.branch) {
@@ -202,29 +204,27 @@ export function row(v: View): Item[][] {
     if (g.behind > 0) label += ` ↓${g.behind}`
     if (g.added > 0 || g.removed > 0) label += ` +${g.added} -${g.removed}`
     if (g.untracked > 0) label += ` ?${g.untracked}`
-    groups.push([{ text: `${label} `, color: C.chipText, bg: g.isWorktree ? C.worktreeBg : C.branchBg, bold: true }])
+    groups.push({ items: [{ text: `${label} `, color: C.chipText, bg: g.isWorktree ? C.worktreeBg : C.branchBg, bold: true }] })
   }
 
   if (v.model) {
     const model: Item[] = [{ text: modelName(v.model), dim: true, button: 'model' }]
     if (v.effort) model.push({ text: ' · ', dim: true }, { text: v.effort, color: effortColor(v.effort), button: 'effort' })
-    groups.push(model)
+    groups.push({ items: model })
   }
 
-  const sep: Item[] = [{ text: '|', dim: true }]
   const ctxPct = Math.floor(v.context.percent ?? 0)
   const { tokens: used, window } = v.context
   const hasTokens = used !== undefined && window > 0
   // tokens / window is finer than the whole-number percent.
   const ctxFill = hasTokens ? (used / window) * 100 : ctxPct
-  if (groups.length) groups.push(sep)
   const context: Item[] = [
     { text: 'ctx ', color: C.white },
     { bar: { pct: ctxFill, width: 15, pace: 'gradient' } },
     { text: ` ${ctxPct}%`, color: C.cyan },
   ]
   if (hasTokens) context.push({ text: ` ${tokens(used)}/${tokens(window)}`, dim: true })
-  groups.push(context)
+  groups.push({ items: context, sep: groups.length > 0 || undefined })
 
   for (const limit of v.rateLimits) {
     const win = WINDOWS[limit.kind]
@@ -242,8 +242,48 @@ export function row(v: View): Item[][] {
       const parts = [countdown(resetsAt, v.now), clockTime(resetsAt, v.now)].filter(Boolean)
       group.push({ text: ` ( ${parts.join(' - ')} )`, dim: true })
     }
-    groups.push(sep, group)
+    groups.push({ items: group, sep: true })
   }
 
   return groups
+}
+
+const SEP: Item[] = [{ text: '|', dim: true }]
+
+// Columns a group takes. In the terminal a Button adds its hotkey ("m: "), and a colored one a dot ("● ").
+function width(items: Item[], isTerminal: boolean): number {
+  let n = 0
+  for (const item of items) {
+    if ('bar' in item) {
+      n += item.bar.width
+      continue
+    }
+    n += [...item.text].length
+    if (isTerminal && item.button) n += item.color ? 5 : 3
+  }
+  return n
+}
+
+// Packs the groups into lines of at most `columns`. A "|" goes only between two groups on one line.
+export function lines(groups: Group[], columns: number, isTerminal: boolean): Item[][][] {
+  const out: Item[][][] = []
+  let line: Item[][] = []
+  let used = 0
+  for (const group of groups) {
+    const w = width(group.items, isTerminal)
+    const sep = group.sep ? 2 : 0 // the "|" and its gap
+    if (line.length && used + 1 + sep + w > columns) {
+      out.push(line)
+      line = []
+      used = 0
+    }
+    if (line.length) {
+      if (group.sep) line.push(SEP)
+      used += 1 + sep
+    }
+    line.push(group.items)
+    used += w
+  }
+  if (line.length) out.push(line)
+  return out
 }
