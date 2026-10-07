@@ -139,7 +139,7 @@ v2 uses the same colors as v1. It gets its data from the mod API, not from stdin
 | Segment | Source |
 |---------|--------|
 | Directory, model | `$.session.cwd()`, `$.session.model()` |
-| Effort level | the `turn.step` event (shows after the first model request) |
+| Effort level | `CLAUDE_EFFORT` at session start, then the `turn.step` event |
 | Git chip | `git status --porcelain=v2`, `git diff --numstat` and `git rev-parse` through `$.process.run` |
 | Context and rate-limit bars | `$.session.usage()` and the `session.measure` event |
 

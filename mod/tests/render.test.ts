@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { ProcessRunResult } from 'claude-code'
 
+import { C } from '../hooks/format'
+
 const ok = (stdout: string): ProcessRunResult => ({
   exitCode: 0,
   stdout,
@@ -30,7 +32,7 @@ test('draws both lines above the prompt on terminal and desktop', async ($, on) 
     },
   }))
   on('process.run', async ($, e) => ({ value: ok(GIT[e.argv[1] ?? ''] ?? '') }))
-  on('settings.read', async () => ({ value: {} }))
+  mock.env(on, {})
 
   await $.session.start({ cwd: '/home/me/repo', surface: 'terminal', isInteractive: true })
 
@@ -64,7 +66,7 @@ test('the model Button opens the model picker in the terminal only', async ($, o
   on('session.model', async () => ({ value: model }))
   on('session.usage', async () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
   on('process.run', async () => ({ value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
-  on('settings.read', async () => ({ value: {} }))
+  mock.env(on, {})
   on('command.run', async ($, e) => {
     ran.push(`/${e.command}${e.args ? ` ${e.args}` : ''}`)
     model = 'claude-sonnet-5-5'
@@ -86,19 +88,17 @@ test('the model Button opens the model picker in the terminal only', async ($, o
   await desktop.unmount()
 })
 
-test('effort shows from the settings at start, and its Button opens /effort in the terminal', async ($, on) => {
+test('effort shows from CLAUDE_EFFORT at start, and its Button opens /effort in the terminal', async ($, on) => {
   mock.clock(on, { now: 0 })
-  let effort = 'high'
+  mock.env(on, { CLAUDE_EFFORT: 'high' })
   const ran: string[] = []
   on('session.start', async ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', async () => ({ value: '/home/me/repo' }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
   on('session.usage', async () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
   on('process.run', async () => ({ value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
-  on('settings.read', async () => ({ value: { effortLevel: effort } }))
   on('command.run', async ($, e) => {
     ran.push(`/${e.command}`)
-    effort = 'max'
     return { text: '' }
   })
   await $.session.start({ cwd: '/home/me/repo', surface: 'terminal', isInteractive: true })
@@ -108,11 +108,12 @@ test('effort shows from the settings at start, and its Button opens /effort in t
   expect(button?.props).toMatchObject({ label: 'high', hotkey: 'e', plain: true })
   await terminal.press({ key: 'effort' })
   expect(ran).toEqual(['/effort'])
-  expect((await terminal.find({ type: 'Button', key: 'effort' }))?.props.label).toBe('max')
+  // The label waits for the next model request to report the new effort.
+  expect((await terminal.find({ type: 'Button', key: 'effort' }))?.props.label).toBe('high')
   await terminal.unmount()
 
   const desktop = await $.ui.mount({ plugin: 'rich-statusline', surface: 'desktop', component: 'AbovePrompt', props: PROPS })
   expect(await desktop.find({ type: 'Button' })).toBeUndefined()
-  expect(await desktop.find({ type: 'Text', text: 'max' })).toBeDefined()
+  expect((await desktop.find({ type: 'Text', text: 'high' }))?.props.color).toBe(C.cyan)
   await desktop.unmount()
 })

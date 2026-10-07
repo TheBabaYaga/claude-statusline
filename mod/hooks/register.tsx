@@ -52,16 +52,10 @@ async function refresh($: EngineInterface) {
   }))
 }
 
-// The effort setting, until a model request reports the effort it used.
+// The effort in use, as Claude Code passes it to Bash. The effortLevel setting can differ: Claude Code may step it down.
 async function readEffort($: EngineInterface) {
-  const { effortLevel } = await $.settings.read()
-  if (typeof effortLevel === 'string') await update($, view, v => ({ ...v, effort: effortLevel }))
-}
-
-// /model and /effort have no change event: read both again once the command ends.
-async function afterCommand($: EngineInterface) {
-  await refresh($)
-  await readEffort($)
+  const effort = await $.env.get('CLAUDE_EFFORT')
+  if (effort) await update($, view, v => ({ ...v, effort }))
 }
 
 const HOTKEYS = { model: 'm', effort: 'e' } as const
@@ -82,15 +76,17 @@ export const register: Register = on => {
     return result
   })
 
+  // /model and /effort have no change event: read the model again once the command ends.
+  // The effort label waits for the next model request (turn.step).
   on('command.run', { command: 'model' }, async ($, e, next) => {
     const result = await next(e)
-    await afterCommand($)
+    await refresh($)
     return result
   })
 
   on('command.run', { command: 'effort' }, async ($, e, next) => {
     const result = await next(e)
-    await afterCommand($)
+    await refresh($)
     return result
   })
 
@@ -161,7 +157,7 @@ export const register: Register = on => {
                 onPress={async () => {
                   // A plugin's own call skips its command.run hook, so read again here.
                   await $.command.run({ command })
-                  await afterCommand($)
+                  await refresh($)
                 }}
               />
             )
