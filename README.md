@@ -155,25 +155,17 @@ The mod refreshes after each turn, when usage changes, and every 30 seconds. It 
 
 ### Install v2
 
-1. Clone the repository:
+1. Add the marketplace and install the plugin:
 
    ```bash
-   git clone git@github.com:TheBabaYaga/claude-statusline.git
+   claude plugin marketplace add TheBabaYaga/claude-statusline
    ```
 
-2. Add the absolute path of its `mod` folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Claude Desktop and the terminal both read this value:
-
-   ```json
-   {
-     "env": {
-       "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/claude-statusline/mod"
-     }
-   }
+   ```bash
+   claude plugin install rich-statusline@thebabayaga
    ```
 
-3. Start a new session.
-
-To try it in one terminal session only, use `claude --plugin-dir ./mod`.
+2. Start a new session.
 
 In the terminal, the model name is a button that opens the `/model` picker. Click it in fullscreen mode, or press `ctrl+x tab` and then `m`.
 
@@ -181,15 +173,31 @@ In the terminal, v1 and v2 both show if you keep the `statusLine` setting. Remov
 
 ### Update v2
 
-Claude Code loads the mod from your clone, so v2 needs no install step. Pull the changes, then start a new session:
-
 ```bash
-git pull
+claude plugin marketplace update thebabayaga
 ```
 
-The mod runs the files that your clone has checked out. Keep `main` checked out to run the released version.
+```bash
+claude plugin update rich-statusline@thebabayaga
+```
+
+Then start a new session.
 
 ### Develop v2
+
+To run v2 from your clone, add the absolute path of its `mod` folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Claude Desktop and the terminal both read this value. If you also installed v2 from the marketplace, uninstall that copy first. Otherwise two copies of v2 can load.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/claude-statusline/mod"
+  }
+}
+```
+
+A change in `mod/` loads in your next session. To try it in one terminal session only, use `claude --plugin-dir ./mod`.
+
+Check and test the mod:
 
 ```bash
 claude plugin validate mod
