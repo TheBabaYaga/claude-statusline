@@ -1,0 +1,7 @@
+{
+  "name": "rich-statusline",
+  "version": "2.0.0",
+  "description": "Directory, git, model, context and rate-limit bars above the prompt, in the terminal and in Claude Desktop",
+  "author": { "name": "Kevin" },
+  "types": "./types/index.d.ts"
+}

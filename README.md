@@ -121,6 +121,59 @@ The install script will:
 git pull && ./install.sh
 ```
 
+## v2: mod for the terminal and Claude Desktop
+
+The [`mod/`](mod) folder holds v2: a Claude Code mod (a plugin of function hooks). Claude Desktop does not run a `statusLine` command, so v1 shows only in the terminal. v2 draws one line in the band above the prompt. That band shows in the terminal and in the Claude Desktop Code tab.
+
+v2 uses the same colors as v1. It gets its data from the mod API, not from stdin JSON:
+
+| Segment | Source |
+|---------|--------|
+| Directory, model | `$.session.cwd()`, `$.session.model()` |
+| Effort level | the `turn.step` event (shows after the first model request) |
+| Git chip | `git status --porcelain=v2`, `git diff --numstat` and `git rev-parse` through `$.process.run` |
+| Context and rate-limit bars | `$.session.usage()` and the `session.measure` event |
+
+The bars are smooth instead of dotted. Claude Desktop draws each bar as an SVG, exact to the pixel. The terminal draws it with block characters in 1/8-cell steps (`███▊░░░`). The colors follow the v1 rules. The context bar fills from `tokens / window`, so it is finer than a whole percent.
+
+To fit on one line, v2 uses short labels (`ctx`, `5h`, `7d`). The line wraps between segments when the band is too narrow:
+
+```text
+ claude-statusline   feat/v2-mod +43 -0 ?9  Opus 5.5 · high | ctx ██▍░░░░░░░░░░░░ 16% 161k/1m | 5h ▎░░░░░░░░░ 3% ( 4h 21min - 2:00pm ) | 7d █░░░░░░░░░ 10% ( 4d 2h - Sun 12:00pm )
+```
+
+The mod refreshes after each turn, when usage changes, and every 30 seconds. It needs no `jq`.
+
+### Install v2
+
+Add the `mod` folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Claude Desktop and the terminal both read this value:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/claude-statusline/mod"
+  }
+}
+```
+
+Then start a new session. To try it in one terminal session only, use `claude --plugin-dir ./mod`.
+
+In the terminal, the model name is a button that opens the `/model` picker. Click it in fullscreen mode, or press `ctrl+x tab` and then `m`.
+
+In the terminal, v1 and v2 both show if you keep the `statusLine` setting. Remove `statusLine` from `~/.claude/settings.json` to show only v2.
+
+### Develop v2
+
+```bash
+claude plugin validate mod
+```
+
+```bash
+claude plugin test mod
+```
+
+The layout rules are in [`mod/hooks/format.ts`](mod/hooks/format.ts). The hooks are in [`mod/hooks/register.tsx`](mod/hooks/register.tsx).
+
 ## How it works
 
 Claude Code invokes the statusline script after every response and pipes it a JSON payload on stdin containing the current directory, model, context-window usage, and rate-limit state (percentages and reset epochs for the 5-hour and 7-day windows). The script reads that JSON with `jq`, runs `git` locally for branch stats, and prints a formatted string.
