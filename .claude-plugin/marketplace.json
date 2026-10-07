@@ -1,0 +1,12 @@
+{
+  "name": "thebabayaga",
+  "owner": { "name": "Kevin" },
+  "description": "Claude Code plugins by TheBabaYaga",
+  "plugins": [
+    {
+      "name": "rich-statusline",
+      "source": "./mod",
+      "description": "Directory, git, model, context and rate-limit bars above the prompt, in the terminal and in Claude Desktop"
+    }
+  ]
+}
