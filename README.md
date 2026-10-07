@@ -167,7 +167,7 @@ The mod refreshes after each turn, when usage changes, and every 30 seconds. It 
 
 2. Start a new session.
 
-In the terminal, the model name is a button that opens the `/model` picker. Click it in fullscreen mode, or press `ctrl+x tab` and then `m`.
+In the terminal, the model name and the effort level are buttons. The model name opens `/model`, and the effort level opens `/effort`. Click a button in fullscreen mode, or press `ctrl+x tab` and then `m` for the model or `e` for the effort.
 
 In the terminal, v1 and v2 both show if you keep the `statusLine` setting. Remove `statusLine` from `~/.claude/settings.json` to show only v2.
 

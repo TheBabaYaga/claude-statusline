@@ -3,7 +3,7 @@
 import type { Git, View } from '../types'
 
 // button: the terminal draws this segment as a Button that runs that slash command.
-export type Seg = { text: string; color?: string; bg?: string; dim?: boolean; bold?: boolean; button?: 'model' }
+export type Seg = { text: string; color?: string; bg?: string; dim?: boolean; bold?: boolean; button?: 'model' | 'effort' }
 
 export const C = {
   blue: '#0099ff',
@@ -196,7 +196,7 @@ export function row(v: View): Item[][] {
 
   if (v.model) {
     const model: Item[] = [{ text: modelName(v.model), dim: true, button: 'model' }]
-    if (v.effort) model.push({ text: ' · ', dim: true }, { text: v.effort, color: C.cyan })
+    if (v.effort) model.push({ text: ' · ', dim: true }, { text: v.effort, color: C.cyan, button: 'effort' })
     groups.push(model)
   }
 

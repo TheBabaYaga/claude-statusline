@@ -52,10 +52,25 @@ async function refresh($: EngineInterface) {
   }))
 }
 
+// The effort setting, until a model request reports the effort it used.
+async function readEffort($: EngineInterface) {
+  const { effortLevel } = await $.settings.read()
+  if (typeof effortLevel === 'string') await update($, view, v => ({ ...v, effort: effortLevel }))
+}
+
+// /model and /effort have no change event: read both again once the command ends.
+async function afterCommand($: EngineInterface) {
+  await refresh($)
+  await readEffort($)
+}
+
+const HOTKEYS = { model: 'm', effort: 'e' } as const
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await refresh($)
+    await readEffort($)
     // Keeps the reset countdowns and the git chip current between turns.
     $.clock.every(30_000, () => void refresh($))
     return result
@@ -67,10 +82,15 @@ export const register: Register = on => {
     return result
   })
 
-  // /model has no change event: read the model again once the command ends.
   on('command.run', { command: 'model' }, async ($, e, next) => {
     const result = await next(e)
-    await refresh($)
+    await afterCommand($)
+    return result
+  })
+
+  on('command.run', { command: 'effort' }, async ($, e, next) => {
+    const result = await next(e)
+    await afterCommand($)
     return result
   })
 
@@ -86,7 +106,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // The effort level is only known per model request.
+  // The effort a model request used. It can differ from the setting (--effort, a model without effort).
   on('turn.step', async function* ($, e, next) {
     if (e.agentId === undefined) {
       const effort = e.effort === undefined ? undefined : String(e.effort)
@@ -125,26 +145,27 @@ export const register: Register = on => {
           )}
         </Box>
       ) : items.some(item => 'button' in item && item.button) ? (
-        // The model name opens the built-in model picker.
+        // The model name opens /model, the effort opens /effort.
         <Box flexDirection="row">
-          {items.map(item =>
-            'bar' in item ? null : item.button ? (
+          {items.map(item => {
+            if ('bar' in item) return null
+            const command = item.button
+            if (!command) return seg(item)
+            return (
               <Button
-                key={item.button}
+                key={command}
                 label={item.text}
-                hotkey="m"
+                hotkey={HOTKEYS[command]}
                 plain
-                dimColor
+                dimColor={item.dim}
                 onPress={async () => {
-                  // A plugin's own call skips its command.run hook, so refresh here.
-                  await $.command.run({ command: 'model' })
-                  await refresh($)
+                  // A plugin's own call skips its command.run hook, so read again here.
+                  await $.command.run({ command })
+                  await afterCommand($)
                 }}
               />
-            ) : (
-              seg(item)
-            ),
-          )}
+            )
+          })}
         </Box>
       ) : (
         <Text wrap="truncate">{items.flatMap(item => ('bar' in item ? barSegs(item.bar) : [item])).map(seg)}</Text>
