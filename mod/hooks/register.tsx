@@ -147,19 +147,23 @@ export const register: Register = on => {
             if ('bar' in item) return null
             const command = item.button
             if (!command) return seg(item)
+            // A Button takes no color, so a dot in front of it carries the color.
             return (
-              <Button
-                key={command}
-                label={item.text}
-                hotkey={HOTKEYS[command]}
-                plain
-                dimColor={item.dim}
-                onPress={async () => {
-                  // A plugin's own call skips its command.run hook, so read again here.
-                  await $.command.run({ command })
-                  await refresh($)
-                }}
-              />
+              <Box flexDirection="row">
+                {item.color ? <Text color={item.color}>● </Text> : null}
+                <Button
+                  key={command}
+                  label={item.text}
+                  hotkey={HOTKEYS[command]}
+                  plain
+                  dimColor={item.dim}
+                  onPress={async () => {
+                    // A plugin's own call skips its command.run hook, so read again here.
+                    await $.command.run({ command })
+                    await refresh($)
+                  }}
+                />
+              </Box>
             )
           })}
         </Box>

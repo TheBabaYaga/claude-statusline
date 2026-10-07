@@ -106,6 +106,7 @@ test('effort shows from CLAUDE_EFFORT at start, and its Button opens /effort in 
   const terminal = await $.ui.mount({ plugin: 'rich-statusline', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
   const button = await terminal.find({ type: 'Button', key: 'effort' })
   expect(button?.props).toMatchObject({ label: 'high', hotkey: 'e', plain: true })
+  expect((await terminal.find({ type: 'Text', text: '● ' }))?.props.color).toBe(C.yellow)
   await terminal.press({ key: 'effort' })
   expect(ran).toEqual(['/effort'])
   // The label waits for the next model request to report the new effort.
@@ -114,6 +115,6 @@ test('effort shows from CLAUDE_EFFORT at start, and its Button opens /effort in 
 
   const desktop = await $.ui.mount({ plugin: 'rich-statusline', surface: 'desktop', component: 'AbovePrompt', props: PROPS })
   expect(await desktop.find({ type: 'Button' })).toBeUndefined()
-  expect((await desktop.find({ type: 'Text', text: 'high' }))?.props.color).toBe(C.cyan)
+  expect((await desktop.find({ type: 'Text', text: 'high' }))?.props.color).toBe(C.yellow)
   await desktop.unmount()
 })

@@ -172,6 +172,17 @@ export function sumNumstat(out: string): { added: number; removed: number } {
   return { added, removed }
 }
 
+// More effort, a warmer color. A level this list does not know stays cyan.
+const EFFORT_COLORS: Record<string, string> = {
+  low: C.blue,
+  medium: C.green,
+  high: C.yellow,
+  xhigh: C.orange,
+  max: C.red,
+}
+
+export const effortColor = (level: string) => EFFORT_COLORS[level] ?? C.cyan
+
 // "claude-opus-5-5" -> "Opus 5.5". Other names stay as they are.
 export function modelName(id: string): string {
   const m = /^claude-([a-z]+)-(\d+)-(\d+)(?:\D|$)/.exec(id)
@@ -196,7 +207,7 @@ export function row(v: View): Item[][] {
 
   if (v.model) {
     const model: Item[] = [{ text: modelName(v.model), dim: true, button: 'model' }]
-    if (v.effort) model.push({ text: ' · ', dim: true }, { text: v.effort, color: C.cyan, button: 'effort' })
+    if (v.effort) model.push({ text: ' · ', dim: true }, { text: v.effort, color: effortColor(v.effort), button: 'effort' })
     groups.push(model)
   }
 

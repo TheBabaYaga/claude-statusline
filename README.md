@@ -151,6 +151,8 @@ To fit on one line, v2 uses short labels (`ctx`, `5h`, `7d`). The line wraps bet
  claude-statusline   feat/v2-mod +43 -0 ?9  Opus 5.5 · high | ctx ██▍░░░░░░░░░░░░ 16% 161k/1m | 5h ▎░░░░░░░░░ 3% ( 4h 21min - 2:00pm ) | 7d █░░░░░░░░░ 10% ( 4d 2h - Sun 12:00pm )
 ```
 
+The effort level has a color for each level: low is blue, medium is green, high is yellow, xhigh is orange, and max is red. In the terminal, a dot in that color comes before the effort button, because a button cannot take a color.
+
 The mod refreshes after each turn, when usage changes, and every 30 seconds. It needs no `jq`.
 
 ### Install v2

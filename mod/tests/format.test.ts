@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { barSegs, barSvg, C, clockTime, countdown, modelName, paceOf, parseStatus, row, sumNumstat, tokens } from '../hooks/format'
+import { barSegs, barSvg, C, clockTime, countdown, effortColor, modelName, paceOf, parseStatus, row, sumNumstat, tokens } from '../hooks/format'
 import type { Item } from '../hooks/format'
 
 const HOUR = 3_600_000
@@ -122,4 +122,9 @@ test('row shows only the context bar when nothing else is known', () => {
   expect(groups).toHaveLength(1)
   expect(groups[0]?.[1]).toMatchObject({ bar: { pct: 0 } })
   expect(groups[0]).toHaveLength(3) // no token count before the first response
+})
+
+test('effortColor uses a heat scale', () => {
+  expect(['low', 'medium', 'high', 'xhigh', 'max'].map(effortColor)).toEqual([C.blue, C.green, C.yellow, C.orange, C.red])
+  expect(effortColor('7')).toBe(C.cyan)
 })
