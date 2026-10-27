@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/TheBabaYaga/claude-statusline/compare/v2.1.0...v2.1.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* remove the black gap after a partial bar cell ([f3a9696](https://github.com/TheBabaYaga/claude-statusline/commit/f3a96962bb13170d2701715c89b52361f3950fe8))
+
 ## [2.1.0](https://github.com/TheBabaYaga/claude-statusline/compare/v2.0.0...v2.1.0) (2026-10-07)
 
 
