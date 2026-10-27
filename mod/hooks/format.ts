@@ -18,6 +18,12 @@ export const C = {
   worktreeBg: '#875fff',
   chipText: '#000000',
   dirText: '#ffffff',
+  // The bar track is a background: subtle follows the theme, the others are the level color at 35% on black.
+  // ponytail: the level tracks stay dark on a light theme, use theme keys if Claude Code adds dimmed ones.
+  track: 'subtle',
+  trackOrange: '#593e1e',
+  trackYellow: '#504600',
+  trackRed: '#591e1e',
 }
 
 const HOUR = 3_600_000
@@ -28,6 +34,8 @@ const WINDOWS: Record<string, { label: string; ms: number }> = {
 
 const byLevel = (pct: number) =>
   pct >= 90 ? C.red : pct >= 70 ? C.yellow : pct >= 50 ? C.orange : undefined
+const trackOf = (pct: number) =>
+  pct >= 90 ? C.trackRed : pct >= 70 ? C.trackYellow : pct >= 50 ? C.trackOrange : C.track
 
 // Joins a segment into the previous one when the style is the same.
 function push(segs: Seg[], seg: Seg) {
@@ -67,17 +75,18 @@ function fillColor({ pct, pace }: Bar, pos: number): string {
 const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉']
 
 // Terminal: full cells, one partial cell in 1/8 steps, then the track.
+// The partial cell has the track as its background, so its empty part does not show the terminal background.
 export function barSegs(bar: Bar): Seg[] {
   const { width } = bar
   const eighths = Math.round((clamp(bar.pct) * width * 8) / 100)
   const full = Math.floor(eighths / 8)
   const part = EIGHTHS[eighths % 8] ?? ''
+  const track = trackOf(Math.floor(clamp(bar.pct)))
   const segs: Seg[] = []
   for (let i = 0; i < full; i++) push(segs, { text: '█', color: fillColor(bar, Math.floor(((i + 1) * 100) / width)) })
-  if (part) push(segs, { text: part, color: fillColor(bar, Math.floor(((full + 1) * 100) / width)) })
-  const track = byLevel(Math.floor(clamp(bar.pct)))
-  const rest = '░'.repeat(width - full - (part ? 1 : 0))
-  if (rest) push(segs, track ? { text: rest, color: track } : { text: rest, dim: true })
+  if (part) push(segs, { text: part, color: fillColor(bar, Math.floor(((full + 1) * 100) / width)), bg: track })
+  const rest = ' '.repeat(width - full - (part ? 1 : 0))
+  if (rest) push(segs, { text: rest, bg: track })
   return segs
 }
 

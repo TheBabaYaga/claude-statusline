@@ -143,7 +143,7 @@ v2 uses the same colors as v1. It gets its data from the mod API, not from stdin
 | Git chip | `git status --porcelain=v2`, `git diff --numstat` and `git rev-parse` through `$.process.run` |
 | Context and rate-limit bars | `$.session.usage()` and the `session.measure` event |
 
-The bars are smooth instead of dotted. Claude Desktop draws each bar as an SVG, exact to the pixel. The terminal draws it with block characters in 1/8-cell steps (`███▊░░░`). The colors follow the v1 rules. The context bar fills from `tokens / window`, so it is finer than a whole percent.
+The bars are smooth instead of dotted. Claude Desktop draws each bar as an SVG, exact to the pixel. The terminal draws the fill with block characters in 1/8-cell steps (`███▊`), on a track of background color. The colors follow the v1 rules. The context bar fills from `tokens / window`, so it is finer than a whole percent.
 
 To fit on one line, v2 uses short labels (`ctx`, `5h`, `7d`). When the band is too narrow, the line breaks between segments. A `|` shows only between two segments on the same line:
 

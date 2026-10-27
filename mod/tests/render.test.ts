@@ -40,10 +40,10 @@ test('draws both lines above the prompt on terminal and desktop', async ($, on) 
 
   const terminal = await $.ui.mount({ plugin: 'rich-statusline', surface: 'terminal', component: 'AbovePrompt', props })
   const texts = (await terminal.findAll({ type: 'Text' })).map(t => t.text)
-  for (const group of [' repo ', ' feat/x +8 -2 ?1 ', 'ctx ███▊░░░░░░░░░░░ 25% 50k/200k', '|', '|']) {
+  for (const group of [' repo ', ' feat/x +8 -2 ?1 ', `ctx ███▊${' '.repeat(11)} 25% 50k/200k`, '|', '|']) {
     expect(texts).toContain(group)
   }
-  expect(texts.some(t => /^7d ████░{6} 40% \( 3d - Sat \d+:00[ap]m \)$/.test(t))).toBe(true)
+  expect(texts.some(t => /^7d ████ {6} 40% \( 3d - Sat \d+:00[ap]m \)$/.test(t))).toBe(true)
   await terminal.unmount()
 
   const desktop = await $.ui.mount({ plugin: 'rich-statusline', surface: 'desktop', component: 'AbovePrompt', props })

@@ -18,26 +18,33 @@ describe('barSegs', () => {
   test('draws a partial cell in 1/8 steps', () => {
     expect(barSegs({ pct: 49, width: 15, pace: 'gradient' })).toEqual([
       { text: '███████', color: C.green },
-      { text: '▍', color: C.orange },
-      { text: '░░░░░░░', dim: true },
+      { text: '▍', color: C.orange, bg: C.track },
+      { text: '       ', bg: C.track },
+    ])
+  })
+
+  test('paints the empty part of the partial cell in the track color', () => {
+    expect(barSegs({ pct: 5, width: 10, pace: 40 })).toEqual([
+      { text: '▌', color: C.blue, bg: C.track },
+      { text: '         ', bg: C.track },
     ])
   })
 
   test('colors the fill by pace and the track by usage', () => {
     expect(barSegs({ pct: 30, width: 10, pace: 50 })).toEqual([
       { text: '███', color: C.blue },
-      { text: '░░░░░░░', dim: true },
+      { text: '       ', bg: C.track },
     ])
     expect(barSegs({ pct: 60, width: 10, pace: 30 })).toEqual([
       { text: '██████', color: C.yellow },
-      { text: '░░░░', color: C.orange },
+      { text: '    ', bg: C.trackOrange },
     ])
     expect(barSegs({ pct: 40, width: 10, pace: 30 })[0]?.color).toBe(C.green)
   })
 
   test('clamps out-of-range values', () => {
     expect(barSegs({ pct: 150, width: 4 })).toEqual([{ text: '████', color: C.red }])
-    expect(barSegs({ pct: -5, width: 4 })).toEqual([{ text: '░░░░', dim: true }])
+    expect(barSegs({ pct: -5, width: 4 })).toEqual([{ text: '    ', bg: C.track }])
   })
 })
 
@@ -111,8 +118,8 @@ test('row marks the groups that a separator goes before', () => {
     now,
   })
   const text = groups.map(g => g.items.map(i => ('bar' in i ? barSegs(i.bar).map(s => s.text).join('') : i.text)).join(''))
-  expect(text.slice(0, 4)).toEqual([' repo ', ' ⎇ main ↑1 +5 -2 ?3 ', 'Opus 5.5 · high', 'ctx █▊░░░░░░░░░░░░░ 11% 118k/1m'])
-  expect(text[4]).toMatch(/^5h ██▍░{7} 23% \( 2h 30min - \d+:30[ap]m \)$/)
+  expect(text.slice(0, 4)).toEqual([' repo ', ' ⎇ main ↑1 +5 -2 ?3 ', 'Opus 5.5 · high', `ctx █▊${' '.repeat(13)} 11% 118k/1m`])
+  expect(text[4]).toMatch(/^5h ██▍ {7} 23% \( 2h 30min - \d+:30[ap]m \)$/)
   expect(text).toHaveLength(5)
   expect(groups.map(g => g.sep ?? false)).toEqual([false, false, false, true, true])
   expect(groups[1]?.items[0]).toMatchObject({ bg: C.worktreeBg })
